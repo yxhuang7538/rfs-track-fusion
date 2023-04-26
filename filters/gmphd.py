@@ -1,5 +1,5 @@
-from common import Filter
-from common import GaussianMixtureModel as GMM
+from filters.common import Filter
+from filters.common import GaussianMixtureModel as GMM
 
 import numpy as np
 from typing import List, Dict, Any
@@ -7,8 +7,8 @@ from tqdm import tqdm
 
 
 class GM_PHD(Filter):
-    def __init__(self, model):
-        super().__init__(model)
+    def __init__(self, radar, clutt_int_fun):
+        super().__init__(radar, clutt_int_fun)
 
     def meas_birth_v(self, Z: List[np.ndarray]) -> GMM:
         """

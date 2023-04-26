@@ -92,7 +92,7 @@ def get_inv_P(P_list: List[np.ndarray]) -> List[np.ndarray]:
 
 
 class Filter:
-    def __init__(self, model: Dict[str, Any]):
+    def __init__(self, radar, clutt_int_fun):
         """
         filter基类，定义基本的滤波方法
         x[k] = Fx[k-1] + w[k-1]
@@ -110,19 +110,19 @@ class Filter:
             T, U, Jmax: 模型剪枝参数
             birth_GM: 出生目标的高斯混合模型
         """
-        self.p_s = model['p_s']
+        self.p_s = radar.p_s
         self.flag = "cv"
-        self.T_s = model['T_s']
+        self.T_s = radar.T_s
         self.F = self.ssm(self.flag)
-        self.Q = model['Q']
-        self.birth_GM = model['birth_GM']
-        self.p_d = model['p_d']
-        self.H = model['H']
-        self.R = model['R']
-        self.clutter_density_func = model['clutt_int_fun']
-        self.T = model['T']
-        self.U = model['U']
-        self.Jmax = model['Jmax']
+        self.p_d = radar.p_d
+        self.H = radar.H
+        self.R = radar.R
+        self.Q = radar.Q
+        self.clutter_density_func = clutt_int_fun
+
+        self.T = 1e-5
+        self.U = 4.
+        self.Jmax = 100
 
     def kalman_predict(self, v: GaussianMixtureModel) -> GaussianMixtureModel:
         """
@@ -280,8 +280,5 @@ def clutter_intensity(z: np.ndarray, lc: int, scenes_range: np.ndarray) -> float
     """
     part1 = 1.0
     for i in range(z.shape[0]):
-        if scenes_range[i][0] <= z[i] <= scenes_range[i][1]:
-            part1 *= (scenes_range[i][1] - scenes_range[i][0])
-        else:
-            part1 *= 0.0
+        part1 *= (scenes_range[i][1] - scenes_range[i][0])
     return lc / part1
