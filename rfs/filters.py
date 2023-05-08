@@ -20,7 +20,7 @@ class LGMPHD_2D(BayesianFilter):
     def __init__(self) -> None:
         """标签GM-PHD滤波器，目标状态为2D点云形式
             X=[x, vx, y, vy].T
-            Z=[r, theta].T
+            Z=[r, phi].T
         """
         super().__init__()
         self.p_s = 0.99    # 存活概率
@@ -42,8 +42,8 @@ class LGMPHD_2D(BayesianFilter):
         # 场景范围
         self.r_min = 0                                # 距离范围
         self.r_max = 2000
-        self.theta_min = -180 * np.pi / 180           # 方位角范围
-        self.theta_max = 180 * np.pi / 180
+        self.phi_min = -180 * np.pi / 180           # 方位角范围
+        self.phi_max = 180 * np.pi / 180
 
         # 目标
         self.id = 1     # 标签里的最后一位唯一标志位
@@ -70,11 +70,11 @@ class LGMPHD_2D(BayesianFilter):
         self.p_s, self.p_d, self.T_s = cfg['p_s'], cfg['p_d'], cfg['T_s']
 
         # 设置观测噪声协方差矩阵
-        sigma_r, sigma_theta = cfg['sigma_r'], cfg['sigma_theta']
-        self.set_R(sigma_r, sigma_theta)
+        sigma_r, sigma_phi = cfg['sigma_r'], cfg['sigma_phi']
+        self.set_R(sigma_r, sigma_phi)
 
         # 设置过程噪声协方差矩阵
-        sigma_v = cfg['sigma_v']
+        sigma_v = cfg['sigma_a']
         self.set_Q(sigma_v)
 
         # 剪枝-合并-截断 参数
@@ -84,18 +84,18 @@ class LGMPHD_2D(BayesianFilter):
 
         # 场景范围
         self.r_min, self.r_max = cfg['r_min'], cfg['r_max'] # 距离范围
-        self.theta_min = cfg['theta_min'] * np.pi / 180     # 方位角范围 弧度
-        self.theta_max = cfg['theta_max'] * np.pi / 180
+        self.phi_min = cfg['phi_min'] * np.pi / 180     # 方位角范围 弧度
+        self.phi_max = cfg['phi_max'] * np.pi / 180
 
-    def set_R(self, sigma_r: float, sigma_theta: float) -> None:
+    def set_R(self, sigma_r: float, sigma_phi: float) -> None:
         """生成观测噪声协方差矩阵
 
         Args:
             sigma_r (float): 距离标准差 （米）
-            sigma_theta (float): 方位标准差 （角度）
+            sigma_phi (float): 方位标准差 （角度）
         """
-        sigma_theta *= (np.pi / 180)    # 转弧度
-        self.R = np.eye(2) * np.array([sigma_r ** 2, sigma_theta ** 2])
+        sigma_phi *= (np.pi / 180)    # 转弧度
+        self.R = np.eye(2) * np.array([sigma_r ** 2, sigma_phi ** 2])
 
     def set_Q(self, sigma_v: float) -> None:
         """设置过程噪声协方差矩阵
@@ -127,11 +127,11 @@ class LGMPHD_2D(BayesianFilter):
         """
         r = np.linspace(self.r_min, self.r_max, N)  # 距离分量
         dr = (self.r_max - self.r_min) / N          # 距离间隔
-        theta = np.linspace(self.theta_min, self.theta_max, N) # 方位角分量
+        phi = np.linspace(self.phi_min, self.phi_max, N) # 方位角分量
         w, m, P, L = [], [], [], []
         for r_ in r:
-            for theta_ in theta:
-                x, y = r_ * np.cos(theta_), r_ * np.sin(theta_) # 直角坐标系下位置
+            for phi_ in phi:
+                x, y = r_ * np.cos(phi_), r_ * np.sin(phi_) # 直角坐标系下位置
                 w.append(0.03)
                 m.append(np.array([x, 0, y, 0]).T)
                 P.append(np.diag([dr, 100, dr, 100]))

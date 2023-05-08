@@ -35,8 +35,8 @@ class Radar:
         # 场景范围
         self.r_min = 0                                # 距离范围
         self.r_max = 2500
-        self.theta_min = -180 * np.pi / 180              # 方位角范围
-        self.theta_max = 180 * np.pi / 180
+        self.phi_min = -180 * np.pi / 180              # 方位角范围
+        self.phi_max = 180 * np.pi / 180
 
         self.all_meas = []                            # 所有量测
     
@@ -52,8 +52,8 @@ class Radar:
         self.T_s, self.p_d = cfg['T_s'], cfg['p_d']
 
         # 设置观测噪声协方差矩阵
-        sigma_r, sigma_theta = cfg['sigma_r'], cfg['sigma_theta']
-        self.set_R(sigma_r, sigma_theta)
+        sigma_r, sigma_phi = cfg['sigma_r'], cfg['sigma_phi']
+        self.set_R(sigma_r, sigma_phi)
 
         # 设置过程噪声协方差矩阵
         sigma_a = cfg['sigma_a']
@@ -61,18 +61,18 @@ class Radar:
 
         # 场景范围
         self.r_min, self.r_max = cfg['radar_r_min'], cfg['radar_r_max'] # 距离范围
-        self.theta_min = cfg['radar_theta_min'] * np.pi / 180     # 方位角范围 弧度
-        self.theta_max = cfg['radar_theta_max'] * np.pi / 180
+        self.phi_min = cfg['radar_phi_min'] * np.pi / 180     # 方位角范围 弧度
+        self.phi_max = cfg['radar_phi_max'] * np.pi / 180
 
-    def set_R(self, sigma_r: float, sigma_theta: float) -> None:
+    def set_R(self, sigma_r: float, sigma_phi: float) -> None:
         """生成观测噪声协方差矩阵
 
         Args:
             sigma_r (float): 距离标准差 （米）
-            sigma_theta (float): 方位标准差 （角度）
+            sigma_phi (float): 方位标准差 （角度）
         """
-        sigma_theta *= (np.pi / 180)    # 转弧度
-        self.R = np.eye(2) * np.array([sigma_r ** 2, sigma_theta ** 2])
+        sigma_phi *= (np.pi / 180)    # 转弧度
+        self.R = np.eye(2) * np.array([sigma_r ** 2, sigma_phi ** 2])
 
     def set_Q(self, sigma_a: float) -> None:
         """设置过程噪声协方差矩阵
@@ -105,17 +105,17 @@ class Radar:
             # 加入杂波
             for _ in range(int(kz.rvs())):
                 r = random.uniform(self.r_min, self.r_max)
-                theta = random.uniform(self.theta_min, self.theta_max)
-                meas.append(np.array([r, theta]))
+                phi = random.uniform(self.phi_min, self.phi_max)
+                meas.append(np.array([r, phi]))
             all_meas.append(meas)   # k时刻所有量测
         self.all_meas = all_meas
         return all_meas
     
     def cart2pol(self, state: np.ndarray) -> np.ndarray:
         r = np.linalg.norm(self.pos - state[[0, 3]])
-        theta = np.arctan2(state[3] - self.pos[1], state[0] - self.pos[0])
+        phi = np.arctan2(state[3] - self.pos[1], state[0] - self.pos[0])
 
-        return np.array([r, theta])
+        return np.array([r, phi])
 
     def pol2cart(self, z: np.ndarray) -> np.ndarray:
         tmp = [z[0] * np.cos(z[1]), z[0] * np.sin(z[1])]

@@ -23,7 +23,7 @@ def example1():
     radarsPos = np.array([[0, 0]])  # 雷达位置
     radarsTs = [1]  # 采样频率
 
-    cfg_path = "/media/hyx/工作盘/codes/rfs-track-fusion_/rfs-track-fusion/configs/standard.yaml"   # 配置文件路径
+    cfg_path = "/media/hyx/工作盘/codes/rfs-track-fusion/configs/standard.yaml"   # 配置文件路径
     for i in range(n):
         radar = Radar(radarsPos[i, :], i, radarsTs[i])
         radar.config(cfg_path)
