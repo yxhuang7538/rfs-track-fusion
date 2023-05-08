@@ -1,0 +1,22 @@
+p_s: 0.99
+p_d: 0.98
+T_s: 1
+sigma_r: 5
+sigma_theta: 0.3
+sigma_v: 5
+
+threshold_pruning: 0.00001
+threshold_merge: 4.
+threshold_cutoff: 100
+
+# 场景范围
+r_min: 0
+r_max: 2000
+theta_min: -180
+theta_max: 180
+
+# 雷达参数
+radar_r_min: 0
+radar_r_max: 3000
+radar_theta_min: -180
+radar_theta_max: 180
