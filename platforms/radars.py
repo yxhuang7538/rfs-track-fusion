@@ -56,8 +56,8 @@ class Radar:
         self.set_R(sigma_r, sigma_theta)
 
         # 设置过程噪声协方差矩阵
-        sigma_v = cfg['sigma_v']
-        self.set_Q(sigma_v)
+        sigma_a = cfg['sigma_a']
+        self.set_Q(sigma_a)
 
         # 场景范围
         self.r_min, self.r_max = cfg['radar_r_min'], cfg['radar_r_max'] # 距离范围
@@ -74,16 +74,16 @@ class Radar:
         sigma_theta *= (np.pi / 180)    # 转弧度
         self.R = np.eye(2) * np.array([sigma_r ** 2, sigma_theta ** 2])
 
-    def set_Q(self, sigma_v: float) -> None:
+    def set_Q(self, sigma_a: float) -> None:
         """设置过程噪声协方差矩阵
 
         Args:
-            sigma_v (float): 速度标准差
+            sigma_a (float): 加速度标准差
         """
         q = np.array([[self.T_s ** 4 / 4, self.T_s ** 3 / 2],
                        [self.T_s ** 3 / 2, self.T_s ** 2]])
         zeros = np.zeros([2, 2])
-        self.Q = np.block([[q, zeros], [zeros, q]]) * (sigma_v ** 2)
+        self.Q = np.block([[q, zeros], [zeros, q]]) * (sigma_a ** 2)
 
     def gen_all_trajs_meas(self, trajs: List[List[np.ndarray]], kz: Poisson) -> List[List[np.ndarray]]:
         """为所有轨迹生成量测

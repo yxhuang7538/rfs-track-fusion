@@ -3,7 +3,7 @@ p_d: 0.98
 T_s: 1
 sigma_r: 5
 sigma_theta: 0.3
-sigma_v: 5
+sigma_a: 5
 
 threshold_pruning: 0.00001
 threshold_merge: 4.
