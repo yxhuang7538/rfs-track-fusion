@@ -3,6 +3,7 @@ p_d: 0.98
 T_s: 1
 sigma_r: 5
 sigma_phi: 0.3
+sigma_theta: 0.3
 sigma_a: 5
 
 threshold_pruning: 0.00001
@@ -14,9 +15,13 @@ r_min: 0
 r_max: 2000
 phi_min: -180
 phi_max: 180
+theta_min: 0
+theta_max: 180
 
 # 雷达参数
 radar_r_min: 0
 radar_r_max: 3000
 radar_phi_min: -180
 radar_phi_max: 180
+radar_theta_min: 0
+radar_theta_max: 180

@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 '''
 @File    :   filters.py
-@Time    :   2023/05/07 20:32:18
+@Time    :   2023/05/09 20:11:56
 @Author  :   yxhuang 
-@Desc    :   定义各种基于贝叶斯的滤波器
+@Desc    :   定义3d目标跟踪的基类
 '''
+
+
 
 from .rfs_types import BayesianFilter
 from .distributions import LabelGaussianMixtureModel as LGMM
@@ -16,10 +18,10 @@ from copy import deepcopy as cdp
 from tqdm import tqdm
 
 
-class LGMPHD_2D(BayesianFilter):
+class LGMPHD_3D(BayesianFilter):
     def __init__(self) -> None:
         """标签GM-PHD滤波器，目标状态为2D点云形式
-            X=[x, vx, y, vy].T
+            X=[x, vx, y, vy, z, vz].T
             Z=[r, phi].T
         """
         super().__init__()
@@ -28,11 +30,12 @@ class LGMPHD_2D(BayesianFilter):
         self.T_s = 1       # 采样频率
 
         self.F = self._CV()                 # 状态转移矩阵
-        self.H = np.array([[1, 0, 0, 0],
-                           [0, 0, 1, 0]])   # 观测矩阵（量测为直角坐标情况）
+        self.H = np.array([[1, 0, 0, 0, 0, 0],
+                           [0, 0, 1, 0, 0, 0],
+                           [0, 0, 0, 0, 1, 0]])   # 观测矩阵（量测为直角坐标情况）
         
-        self.R = np.zeros([2, 2])           # 量测噪声协方差矩阵（量测为极坐标）
-        self.Q = np.zeros([4, 4])           # 过程噪声协方差矩阵
+        self.R = np.zeros([3, 3])           # 量测噪声协方差矩阵（量测为极坐标）
+        self.Q = np.zeros([6, 6])           # 过程噪声协方差矩阵
 
         # 剪枝-合并-截断 参数
         self.threshold_pruning = 1e-5       # 剪枝阈值
@@ -44,6 +47,8 @@ class LGMPHD_2D(BayesianFilter):
         self.r_max = 2000
         self.phi_min = -180 * np.pi / 180           # 方位角范围
         self.phi_max = 180 * np.pi / 180
+        self.theta_min = -90 * np.pi / 180           # 俯仰角范围
+        self.theta_max = 90 * np.pi / 180
 
         # 目标
         self.id = 1     # 标签里的最后一位唯一标志位
@@ -54,7 +59,7 @@ class LGMPHD_2D(BayesianFilter):
         T = self.T_s
         f = np.array([[1, T], [0, 1]])
         z = np.zeros([2, 2])
-        F = np.block([[f, z], [z, f]])
+        F = np.block([[f, z, z], [z, f, z], [z, z, f]])
         return F
     
     def config(self, cfg_path: str) -> None:
@@ -70,8 +75,8 @@ class LGMPHD_2D(BayesianFilter):
         self.p_s, self.p_d, self.T_s = cfg['p_s'], cfg['p_d'], cfg['T_s']
 
         # 设置观测噪声协方差矩阵
-        sigma_r, sigma_phi = cfg['sigma_r'], cfg['sigma_phi']
-        self.set_R(sigma_r, sigma_phi)
+        sigma_r, sigma_phi, sigma_theta = cfg['sigma_r'], cfg['sigma_phi'], cfg['sigma_theta']
+        self.set_R(sigma_r, sigma_phi, sigma_theta)
 
         # 设置过程噪声协方差矩阵
         sigma_v = cfg['sigma_a']
@@ -86,27 +91,31 @@ class LGMPHD_2D(BayesianFilter):
         self.r_min, self.r_max = cfg['r_min'], cfg['r_max'] # 距离范围
         self.phi_min = cfg['phi_min'] * np.pi / 180     # 方位角范围 弧度
         self.phi_max = cfg['phi_max'] * np.pi / 180
+        self.theta_min = cfg['theta_min'] * np.pi / 180     # 方位角范围 弧度
+        self.theta_max = cfg['theta_max'] * np.pi / 180
 
-    def set_R(self, sigma_r: float, sigma_phi: float) -> None:
+    def set_R(self, sigma_r: float, sigma_phi: float, sigma_theta: float) -> None:
         """生成观测噪声协方差矩阵
 
         Args:
             sigma_r (float): 距离标准差 （米）
+            sigma_theta (float): 俯仰标准差 （角度）
             sigma_phi (float): 方位标准差 （角度）
         """
-        sigma_phi *= (np.pi / 180)    # 转弧度
-        self.R = np.eye(2) * np.array([sigma_r ** 2, sigma_phi ** 2])
+        sigma_theta *= (np.pi / 180)    # 转弧度
+        sigma_phi *= (np.pi / 180)      # 转弧度
+        self.R = np.eye(3) * np.array([sigma_r ** 2, sigma_phi ** 2, sigma_theta ** 2])
 
-    def set_Q(self, sigma_v: float) -> None:
+    def set_Q(self, sigma_a: float) -> None:
         """设置过程噪声协方差矩阵
 
         Args:
-            sigma_v (float): 速度标准差
+            sigma_a (float): 加速度标准差
         """
         q = np.array([[self.T_s ** 4 / 4, self.T_s ** 3 / 2],
                        [self.T_s ** 3 / 2, self.T_s ** 2]])
         zeros = np.zeros([2, 2])
-        self.Q = np.block([[q, zeros], [zeros, q]]) * (sigma_v ** 2)
+        self.Q = np.block([[q, zeros, zeros], [zeros, q, zeros], [zeros, zeros, q]]) * (sigma_a ** 2)
 
     def set_F(self, F: np.ndarray) -> None:
         """设置状态转移矩阵
@@ -128,15 +137,17 @@ class LGMPHD_2D(BayesianFilter):
         r = np.linspace(self.r_min, self.r_max, N)  # 距离分量
         dr = (self.r_max - self.r_min) / N          # 距离间隔
         phi = np.linspace(self.phi_min, self.phi_max, N) # 方位角分量
+        theta = np.linspace(self.theta_min, self.theta_max, N) # 俯仰角分量
         w, m, P, L = [], [], [], []
         for r_ in r:
             for phi_ in phi:
-                x, y = r_ * np.cos(phi_), r_ * np.sin(phi_) # 直角坐标系下位置
-                w.append(0.03)
-                m.append(np.array([x, 0, y, 0]).T)
-                P.append(np.diag([dr, 100, dr, 100]))
-                L.append(np.array([0, 0, self.id]))
-                self.id += 1
+                for theta_ in theta:
+                    x, y, z = r_ * np.cos(phi_) * np.sin(theta_), r_ * np.sin(phi_) * np.sin(theta_), r_ * np.cos(theta_) # 直角坐标系下位置
+                    w.append(0.03)
+                    m.append(np.array([x, 0, y, 0, z, 0]).T)
+                    P.append(np.diag([dr, 100, dr, 100, dr, 100]))
+                    L.append(np.array([0, 0, self.id]))
+                    self.id += 1
         return LGMM(w, m, P, L)
 
     def predict(self, v: LGMM) -> LGMM:
@@ -177,8 +188,8 @@ class LGMPHD_2D(BayesianFilter):
         w, m, P, L = [], [], [], []
         for z in Z:
             w.append(1 / len(Z))
-            m.append(np.array([z[0], 0, z[1], 0]).T)
-            P.append(np.diag([100, 100, 100, 100]))
+            m.append(np.array([z[0], 0, z[1], 0, z[2], 0]).T)
+            P.append(np.diag([100, 100, 100, 100, 100, 100]))
             L.append(np.array([0, 0, self.id]))
             self.id += 1
         return LGMM(w, m, P, L)
@@ -213,7 +224,7 @@ class LGMPHD_2D(BayesianFilter):
 
         # 将m和P转换成量测的维度形式
         [m_d.append(self.H @ mean) for mean in v_d.m]
-        R = np.eye(2) * self.R[0, 0]
+        R = np.eye(3) * self.R[0, 0]
         [P_d.append(R + self.H @ cov @ self.H.T) for cov in v_d.P]
 
         # 标签沿用
@@ -347,7 +358,7 @@ class LGMPHD_2D(BayesianFilter):
             else:
                 w_m.append(sum(w_list))
                 m_m.append(np.dot(np.array(v.w)[I_merge].T, np.array(v.m)[I_merge, :]) / sum(w_list))
-                P_tmp = np.zeros([4, 4])
+                P_tmp = np.zeros([6, 6])
                 for i in I_merge:
                     P_tmp += v.w[i] * v.P[i]
                 P_m.append(P_tmp / sum(w_list))
@@ -463,7 +474,7 @@ class LGMPHD_2D(BayesianFilter):
         """
         X = []  # 滤波结果
         # step1 初始化
-        v = self.initialization(4)
+        v = self.initialization(3)
         for z in tqdm(Z):
             # step2 量测驱动新生目标
             v_b = self.predict_born(z)
