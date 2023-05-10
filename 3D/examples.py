@@ -36,7 +36,7 @@ def example1():
 
     # 生成量测+滤波
     for i in range(n):
-        lc = 10 # 杂波服从的泊松分布参数
+        lc = 20 # 杂波服从的泊松分布参数
         kz = Poisson(lc)    # 杂波泊松分布
         meas_cart = []  # 直角坐标系下量测
         [meas_cart.append([]) for _ in range(K)]

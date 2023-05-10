@@ -239,7 +239,9 @@ class LGMPHD_3D(BayesianFilter):
             qkz = v_temp.pdf_i_list(z)
             norm = np.sum(qkz) + cdf(z)
             # 利用KF的更新步骤更新m和P，L将沿用
-            for i in range(v_temp.J):
+            w_tmp = qkz / norm
+            I = (w_tmp > 0.2).nonzero()[0]
+            for i in I:
                 w_.append(qkz[i] / norm)
                 K = v.P[i] @ self.H.T @ np.linalg.pinv(v_temp.P[i]) # kalman增益
                 m_.append(v.m[i] + K @ (z - v_temp.m[i]))
@@ -287,7 +289,9 @@ class LGMPHD_3D(BayesianFilter):
             qkz = v_temp.pdf_i_list(z)
             norm = np.sum(qkz) + cdf(z)
             # 利用KF的更新步骤更新m和P，L将沿用
-            for i in range(v_temp.J):
+            w_tmp = qkz / norm
+            I = (w_tmp > 0.2).nonzero()[0]
+            for i in I:
                 w_.append(qkz[i] / norm)
                 K = v_b.P[i] @ self.H.T @ np.linalg.pinv(v_temp.P[i]) # kalman增益
                 m_.append(v_b.m[i] + K @ (z - v_temp.m[i]))
